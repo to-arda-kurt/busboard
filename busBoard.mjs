@@ -38,14 +38,14 @@ const stopPoint = `490008660N`;
 
 //Form Variables
 const postcodeForm = document.getElementById('postcodeForm')
-const postcode = document.getElementById('postcode').value;
-const postcodeSubmit = document.getElementById('postcodeSubmit');
+const postcode = document.getElementById('postcode');
 
-const OPTIONS = [
-    { stopTypes: "NaptanOnstreetBusCoachStopPair" },
-    { radius: 200 },
-    { mode_names: true }
-]
+const OPTIONS = {
+    stopTypes: "NaptanPublicBusCoachTram" ,
+    radius: 1500 ,
+    mode_names: true 
+}
+
 
 let loading = false;
 
@@ -57,10 +57,10 @@ postcodeForm.addEventListener("submit", (e) => {
 });
 
 // Get Postcode Details then use Longitute and Latitude
-const getPostcodeInfo = async (postcode) => {
+const getPostcodeInfo = async (pstcode) => {
 
     console.log("loading [getPostcodeInfo]")
-    const response = await fetch(`${POSTCODE_URL}/${postcode}`)
+    const response = await fetch(`${POSTCODE_URL}/${pstcode}`)
     const data = await response.json();
     const postCodeInfo = await data.result;
 
@@ -69,12 +69,11 @@ const getPostcodeInfo = async (postcode) => {
     return { lat: postCodeInfo.latitude, lon: postCodeInfo.longitude };
 };
 
-const getBusStopPointsbyLonLat = (async (lat, lon) => {
+const getBusStopPointsbyLonLat = (async (lat, lon,stopTypes,radius) => {
 
-    let radius = 1500;
 
     console.log("loading [getBusStopPointsbyLonLat]")
-    const response = await fetch(`${TFL_URL}/?lat=${lat}&lon=${lon}&stopTypes=NaptanPublicBusCoachTram&radius=${radius}`)
+    const response = await fetch(`${TFL_URL}/?lat=${lat}&lon=${lon}&stopTypes=${stopTypes}&radius=${radius}`)
 
     const body = await response.json()
     const stopPointsData = await body.stopPoints
@@ -86,20 +85,27 @@ const getBusStopPointsbyLonLat = (async (lat, lon) => {
 
 });
 
-const getBusPredictionsbyStopPoints (stopPoints) {
+const getBusPredictionsbyStopPoints = async (stopPoints) => {
 
     console.log("loading [getBusPredictionsbyStopPoints]")
 
-    const response = await fetch(`${POSTCODE_URL}/${postcode}`)
-    const data = await response.json();
+    for(let stopPoint of stopPoints){
+        const [stopName, stopPointId] = stopPoint;
+        console.log(stopPoint)
+        const response = await fetch(`${TFL_URL}/${stopPointId}/Arrivals`)
+        const data = await response.json();
+        console.log(data);
+    }
+    
 
-    const postCodeInfo = await data.result;
+  
 } 
 
-const busBoard = async (OPTIONS) => {
-    const postCodeInfo = await getPostcodeInfo(postcode);
+const busBoard = async () => {
+    const postCodeInfo = await getPostcodeInfo(postcode.value);
     console.log(postCodeInfo);
-    const stopPoints = await getBusStopPointsbyLonLat(postCodeInfo.lat, postCodeInfo.lon);
+    const stopPoints = await getBusStopPointsbyLonLat(postCodeInfo.lat, postCodeInfo.lon, OPTIONS.stopTypes, OPTIONS.radius);
     console.log(stopPoints)
-    const arrivalBuses = await getBusPredictionsbyStopPoints()
+
+    const arrivalBuses = await getBusPredictionsbyStopPoints(stopPoints)
 }
