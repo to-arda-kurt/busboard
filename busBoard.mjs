@@ -39,6 +39,7 @@ const stopPoint = `490008660N`;
 //Form Variables
 const postcodeForm = document.getElementById('postcodeForm')
 const postcode = document.getElementById('postcode');
+const arrivals = document.getElementById('arrivals');
 
 const OPTIONS = {
     stopTypes: "NaptanPublicBusCoachTram" ,
@@ -46,12 +47,12 @@ const OPTIONS = {
     mode_names: true 
 }
 
-
 let loading = false;
 
 // Event Listeners
 postcodeForm.addEventListener("submit", (e) => {
     e.preventDefault();
+    clearApp();
     console.log(postcode.value)
     busBoard();
 });
@@ -63,49 +64,76 @@ const getPostcodeInfo = async (pstcode) => {
     const response = await fetch(`${POSTCODE_URL}/${pstcode}`)
     const data = await response.json();
     const postCodeInfo = await data.result;
-
-
-
     return { lat: postCodeInfo.latitude, lon: postCodeInfo.longitude };
 };
 
 const getBusStopPointsbyLonLat = (async (lat, lon,stopTypes,radius) => {
 
-
     console.log("loading [getBusStopPointsbyLonLat]")
     const response = await fetch(`${TFL_URL}/?lat=${lat}&lon=${lon}&stopTypes=${stopTypes}&radius=${radius}`)
-
     const body = await response.json()
     const stopPointsData = await body.stopPoints
-
-
+    console.log(stopPointsData)
     return stopPointsData
         .sort((stopPointA, stopPointB) => stopPointA.distance - stopPointB.distance)
-        .slice(0, 4).map(stopPoint => [stopPoint.commonName, stopPoint.naptanId]);
+        .slice(0, 4).map(stopPoint => [stopPoint.indicator, stopPoint.commonName, stopPoint.naptanId ]);
 
 });
 
 const getBusPredictionsbyStopPoints = async (stopPoints) => {
 
     console.log("loading [getBusPredictionsbyStopPoints]")
-
-    for(let stopPoint of stopPoints){
-        const [stopName, stopPointId] = stopPoint;
-        console.log(stopPoint)
-        const response = await fetch(`${TFL_URL}/${stopPointId}/Arrivals`)
-        const data = await response.json();
-        console.log(data);
-    }
+    let data;
     
-
+    for(let stopPoint of stopPoints){
+        const [indicator ,stopName, stopPointId] = stopPoint;
+        const response = await fetch(`${TFL_URL}/${stopPointId}/Arrivals`)
+        data = await response.json();
+        await createArrivalsElement(data.sort((timeToStationA, timeToStationB) => timeToStationA - timeToStationB), indicator, stopName);
+        console.log(data)
+    }
   
 } 
 
+const createStopNameElement = async(indicator, stopName) => {
+    const node = await document.createElement('h1');
+    node.setAttribute('class', 'bus-board-title')
+    node.innerHTML = (`${indicator} - ${stopName}`);
+    return arrivals.appendChild(node);
+}
+
+const createArrivalsElement = async(data, indicator, stopName) => {
+    await console.log(data);
+
+    // Create Bus Board
+    const nodeBusBoard = await document.createElement('div');
+    nodeBusBoard.setAttribute('class', 'bus-board');
+    nodeBusBoard.appendChild(await createStopNameElement(stopName, indicator));
+    
+    // Create Bus List and Fetch-Add all busses
+    const nodeBusList = await document.createElement('ol');
+    nodeBusList.setAttribute('class', 'bus-list');
+    for(let bus of data){
+        nodeBusList.setAttribute('data', `${bus.lineName}`);
+        const node = await document.createElement('li');
+        node.setAttribute('class', 'bus card');
+        const busCard = `<span>${bus.lineName} </span><span>${bus.destinationName} </span><span>${bus.timeToStation}</span>`
+        node.innerHTML = busCard;
+        nodeBusList.appendChild(node);
+    }
+    nodeBusBoard.appendChild(nodeBusList);
+    arrivals.appendChild(nodeBusBoard);
+}
+
 const busBoard = async () => {
     const postCodeInfo = await getPostcodeInfo(postcode.value);
-    console.log(postCodeInfo);
     const stopPoints = await getBusStopPointsbyLonLat(postCodeInfo.lat, postCodeInfo.lon, OPTIONS.stopTypes, OPTIONS.radius);
-    console.log(stopPoints)
 
-    const arrivalBuses = await getBusPredictionsbyStopPoints(stopPoints)
+
+    const arrivalBuses = await getBusPredictionsbyStopPoints(stopPoints);
+    console.log(arrivalBuses)
+}
+
+const clearApp = async() => {
+    arrivals.innerHTML = "";
 }
